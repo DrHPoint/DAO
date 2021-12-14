@@ -112,8 +112,8 @@ contract DAO {
             if (((proposal.voteAccept + proposal.voteAgainst) * minimumAccept / 100 <= proposal.voteAccept) 
                     || (proposal.voteAccept >= proposal.controlPackage))
             {
-                proposal.recipient.call(proposal.byteCode);
                 endProposal(_idProposal);
+                execute(_idProposal);
             } 
             else if (proposal.voteAgainst >= proposal.controlPackage) 
                 endProposal(_idProposal);
@@ -138,5 +138,10 @@ contract DAO {
             if (proposals[i].status) 
                 require(proposals[i].accounts[_asking].votesIn > 0, "Not all voting completed");
         locks[_asking] = true;
+    }
+
+    function execute(uint256 _idProposal) private {
+        (bool success, bytes memory returndData) = proposals[_idProposal].recipient.call(proposals[_idProposal].byteCode);
+        require (success, "execute: call failed");
     }
 }
