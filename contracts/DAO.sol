@@ -43,6 +43,7 @@ contract DAO {
         uint256 controlPackage;
         mapping (address => Account) accounts;
         bool status;
+        bool isExecutable;
         uint256 voteAccept;
         uint256 voteAgainst;
         uint256 dateBeggining;
@@ -113,7 +114,7 @@ contract DAO {
                     || (proposal.voteAccept >= proposal.controlPackage))
             {
                 endProposal(_idProposal);
-                execute(_idProposal);
+                proposal.isExecutable = true;
             } 
             else if (proposal.voteAgainst >= proposal.controlPackage) 
                 endProposal(_idProposal);
@@ -125,7 +126,7 @@ contract DAO {
     function endProposal(uint256 _idProposal) private {
         Proposal storage proposal = proposals[_idProposal];
         proposal.status = false;
-                emit CloseProposal(_idProposal, proposal.voteAccept, proposal.voteAgainst);
+        emit CloseProposal(_idProposal, proposal.voteAccept, proposal.voteAgainst);
     }
 
     function checkEnding(uint256 _idProposal) public forCurrentProposal(_idProposal){
@@ -140,8 +141,10 @@ contract DAO {
         locks[_asking] = true;
     }
 
-    function execute(uint256 _idProposal) private {
-        (bool success, bytes memory returndData) = proposals[_idProposal].recipient.call(proposals[_idProposal].byteCode);
+    function execute(uint256 _idProposal) public {
+        Proposal storage proposal = proposals[_idProposal];
+        require (proposal.isExecutable, "Not executable");
+        (bool success, ) = proposal.recipient.call(proposal.byteCode);
         require (success, "execute: call failed");
     }
 }
