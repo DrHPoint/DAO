@@ -7,12 +7,13 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract DAO {
 
     mapping (address => uint256) private tokens;
-    mapping (address => bool) private locks;
+    mapping (address => uint256) private locks;
     mapping (uint256 => Proposal) public proposals;
     address public tokenAddress;
     address public owner;
     uint256 public currentProposal = 0;
     uint256 public minimumAccept;
+    uint256 public gMinimumQuorum;
     uint256 private i;
     uint256 private duration;
 
@@ -61,7 +62,7 @@ contract DAO {
         proposal.byteCode = _byteCode;
         proposal.description = _description;
         proposal.recipient = _recipient;
-        proposal.minimumQuorum = IERC20(tokenAddress).totalSupply() * 3 / 10;
+        proposal.minimumQuorum = IERC20(tokenAddress).totalSupply() * gMinimumQuorum / 100;
         proposal.controlPackage = IERC20(tokenAddress).totalSupply() / 2 + 1;
         proposal.status = true;
         proposal.dateBeggining = block.timestamp;
@@ -73,12 +74,12 @@ contract DAO {
     function deposite(uint256 _amount) public {
         require(IERC20(tokenAddress).transferFrom(msg.sender, address(this), _amount), "Deposite failed");
         tokens[msg.sender] = _amount;
-        locks[msg.sender] = true;
+        locks[msg.sender] = block.timestamp + duration;
     }
     
     function withdraw(uint256 _amount) public {
         require(tokens[msg.sender] >= _amount, "Not enough tokens");
-        checkAddress(msg.sender);
+        require(locks[msg.sender] < block.timestamp, "Not all voting completed");
         require(IERC20(tokenAddress).transfer(msg.sender, _amount), "Withdraw failed");
         tokens[msg.sender] -= _amount;
     }
@@ -91,7 +92,8 @@ contract DAO {
         require(tokens[msg.sender] - account.votesIn > 0, "Not enough tokens");
         dAccount.weight += tokens[msg.sender] - account.votesIn;
         account.votesIn = tokens[msg.sender];
-        locks[msg.sender] = false;
+        if (locks[msg.sender] < proposals[_idProposal].dateEnding)
+            locks[msg.sender] = proposals[_idProposal].dateEnding;
     }
     
     function vote(uint256 _idProposal, bool _accept) public {
@@ -132,13 +134,6 @@ contract DAO {
     function checkEnding(uint256 _idProposal) public forCurrentProposal(_idProposal){
         require(proposals[_idProposal].dateEnding < block.timestamp, "Proposal isnt over");
         checkVotes(_idProposal);
-    }
-
-    function checkAddress(address _asking) private {
-        for (i = 1; i < currentProposal; i++) 
-            if (proposals[i].status) 
-                require(proposals[i].accounts[_asking].votesIn > 0, "Not all voting completed");
-        locks[_asking] = true;
     }
 
     function execute(uint256 _idProposal) public {

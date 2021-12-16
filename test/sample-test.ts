@@ -17,9 +17,12 @@ describe("DAO", function () {
   });
 
   describe("someFunction", () => {
-    it("should revert with message '', when the given lucky number does not match with their existing lucky number", async () => {
+    it("should created new Proposal, get votes and end proposal with transfer tokens to addr3", async () => {
       await dao.deployed();
-      await dao.saveLuckyNumber(6);
+      
+
+      ethers.provider.send("evm_increaseTime", [3 * 86400]); //Увеличение даты
+      ethers.provider.send("evm_mine", []);
 
       await expect(dao.updateLuckyNumber(8, 99)).to.be.revertedWith(
         "Not your previous lucky number."
