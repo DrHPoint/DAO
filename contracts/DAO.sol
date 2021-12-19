@@ -3,31 +3,34 @@ pragma solidity ^0.8.1;
 
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract DAO {
 
+contract DAO is AccessControl {
+
+    bytes32 public constant CHAIR_PERSON = keccak256("CHAIR_PERSON");
     mapping (address => uint256) private tokens;
     mapping (address => uint256) private locks;
     mapping (uint256 => Proposal) public proposals;
     address public tokenAddress;
-    address public owner;
     uint256 public currentProposal = 0;
-    uint256 public minimumAccept;
-    uint256 public gMinimumQuorum;
+    uint256 public procentAccept = 70;
+    uint256 public procentQuorum;
     uint256 private i;
     uint256 private duration;
 
 
-    constructor(address _tokenAddress, uint256 _minimumAccept, uint256 _duration) {
-        owner = msg.sender;
+    constructor(address _tokenAddress, uint256 _procentQuorum, uint256 _duration) {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(CHAIR_PERSON, msg.sender);
         tokenAddress = _tokenAddress;
-        minimumAccept = _minimumAccept;
+        procentQuorum = _procentQuorum;
         duration = _duration * 1 days;
     }
 
     modifier forCurrentProposal (uint256 _idProposal) {
         require(_idProposal <= currentProposal, "Proposal doesn't exist");
-        require(proposals[_idProposal].status, "Proposal is over");
+        require(proposals[_idProposal].status == true, "Proposal is over");
         _;
    }    
 
@@ -62,7 +65,7 @@ contract DAO {
         proposal.byteCode = _byteCode;
         proposal.description = _description;
         proposal.recipient = _recipient;
-        proposal.minimumQuorum = IERC20(tokenAddress).totalSupply() * gMinimumQuorum / 100;
+        proposal.minimumQuorum = IERC20(tokenAddress).totalSupply() * procentQuorum / 100;
         proposal.controlPackage = IERC20(tokenAddress).totalSupply() / 2 + 1;
         proposal.status = true;
         proposal.dateBeggining = block.timestamp;
@@ -70,11 +73,16 @@ contract DAO {
         emit NewProposal(currentProposal, _byteCode, _description, _recipient);
         currentProposal++;
     }
+
+    function changeVotingRules(uint256 _procentQuorum, uint256 _duration) external{
+        require(hasRole(CHAIR_PERSON, msg.sender), "Person doesnt have the CHAIR_PERSON role");
+        procentQuorum = _procentQuorum;
+        duration = _duration;
+    }
     
     function deposite(uint256 _amount) public {
         require(IERC20(tokenAddress).transferFrom(msg.sender, address(this), _amount), "Deposite failed");
-        tokens[msg.sender] = _amount;
-        locks[msg.sender] = block.timestamp + duration;
+        tokens[msg.sender] += _amount;
     }
     
     function withdraw(uint256 _amount) public {
@@ -110,18 +118,13 @@ contract DAO {
 
     function checkVotes(uint256 _idProposal) private {
         Proposal storage proposal = proposals[_idProposal];
-        if (proposal.voteAccept + proposal.voteAgainst >= proposal.minimumQuorum) 
+        if ((proposals[_idProposal].dateEnding < block.timestamp) || (proposal.voteAccept >= proposal.controlPackage))
         {
-            if (((proposal.voteAccept + proposal.voteAgainst) * minimumAccept / 100 <= proposal.voteAccept) 
-                    || (proposal.voteAccept >= proposal.controlPackage))
-            {
-                endProposal(_idProposal);
-                proposal.isExecutable = true;
-            } 
-            else if (proposal.voteAgainst >= proposal.controlPackage) 
-                endProposal(_idProposal);
-        } 
-        else if (proposals[_idProposal].dateEnding < block.timestamp) 
+            endProposal(_idProposal);
+            if ((proposal.voteAccept + proposal.voteAgainst) * procentAccept / 100 <= proposal.voteAccept)
+                proposal.isExecutable = true;            
+        }
+        else if (proposal.voteAgainst >= proposal.controlPackage)
             endProposal(_idProposal);
     }
 
