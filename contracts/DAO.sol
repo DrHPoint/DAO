@@ -14,10 +14,10 @@ contract DAO is AccessControl {
     mapping (uint256 => Proposal) public proposals;
     address public tokenAddress;
     uint256 public currentProposal = 0;
-    uint256 public procentAccept = 70;
+    uint256 public immutable procentAccept = 70;
     uint256 public procentQuorum;
     uint256 private i;
-    uint256 private duration;
+    uint256 public duration;
 
 
     constructor(address _tokenAddress, uint256 _procentQuorum, uint256 _duration) {
@@ -29,7 +29,7 @@ contract DAO is AccessControl {
     }
 
     modifier forCurrentProposal (uint256 _idProposal) {
-        require(_idProposal <= currentProposal, "Proposal doesn't exist");
+        require(_idProposal < currentProposal, "Proposal doesn't exist");
         require(proposals[_idProposal].status == true, "Proposal is over");
         _;
    }    
@@ -60,7 +60,7 @@ contract DAO is AccessControl {
         bool vote;
     }
 
-    function createProposal(bytes memory _byteCode, string memory _description, address _recipient) public {
+    function createProposal(bytes memory _byteCode, string memory _description, address _recipient) external {
         Proposal storage proposal = proposals[currentProposal];
         proposal.byteCode = _byteCode;
         proposal.description = _description;
@@ -71,24 +71,24 @@ contract DAO is AccessControl {
         proposal.dateBeggining = block.timestamp;
         proposal.dateEnding = proposal.dateBeggining + duration;
         emit NewProposal(currentProposal, _byteCode, _description, _recipient);
-        currentProposal++;
+        currentProposal = currentProposal + 1;
     }
 
-    function changeVotingRules(uint256 _procentQuorum, uint256 _duration) external{
+    function changeVotingRules(uint256 _procentQuorum, uint256 _duration) external {
         require(hasRole(CHAIR_PERSON, msg.sender), "Person doesnt have the CHAIR_PERSON role");
         procentQuorum = _procentQuorum;
-        duration = _duration;
+        duration = _duration * 1 days;
     }
     
-    function deposite(uint256 _amount) public {
-        require(IERC20(tokenAddress).transferFrom(msg.sender, address(this), _amount), "Deposite failed");
+    function deposite(uint256 _amount) external {
+        require(IERC20(tokenAddress).transferFrom(msg.sender, address(this), _amount));
         tokens[msg.sender] += _amount;
     }
     
-    function withdraw(uint256 _amount) public {
+    function withdraw(uint256 _amount) external {
         require(tokens[msg.sender] >= _amount, "Not enough tokens");
         require(locks[msg.sender] < block.timestamp, "Not all voting completed");
-        require(IERC20(tokenAddress).transfer(msg.sender, _amount), "Withdraw failed");
+        require(IERC20(tokenAddress).transfer(msg.sender, _amount));
         tokens[msg.sender] -= _amount;
     }
 
@@ -104,7 +104,7 @@ contract DAO is AccessControl {
             locks[msg.sender] = proposals[_idProposal].dateEnding;
     }
     
-    function vote(uint256 _idProposal, bool _accept) public {
+    function vote(uint256 _idProposal, bool _accept) external {
         delegate(_idProposal, msg.sender);
         Account storage account = proposals[_idProposal].accounts[msg.sender];
         if (_accept) 
@@ -134,12 +134,12 @@ contract DAO is AccessControl {
         emit CloseProposal(_idProposal, proposal.voteAccept, proposal.voteAgainst);
     }
 
-    function checkEnding(uint256 _idProposal) public forCurrentProposal(_idProposal){
-        require(proposals[_idProposal].dateEnding < block.timestamp, "Proposal isnt over");
-        checkVotes(_idProposal);
+    function checkEnding(uint256 _idProposal) external forCurrentProposal(_idProposal){
+        if(proposals[_idProposal].dateEnding < block.timestamp)
+            checkVotes(_idProposal);
     }
 
-    function execute(uint256 _idProposal) public {
+    function execute(uint256 _idProposal) external {
         Proposal storage proposal = proposals[_idProposal];
         require (proposal.isExecutable, "Not executable");
         (bool success, ) = proposal.recipient.call(proposal.byteCode);
