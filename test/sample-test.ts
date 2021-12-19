@@ -210,9 +210,6 @@ describe("DAO", function () {
   });
 
 
-
-
-
   describe("Check requires", () => {
     it("deposite more than expected", async () => {
       await token.deployed();
@@ -459,6 +456,16 @@ describe("DAO", function () {
       await checkEnd.wait();
     });
 
+  });
+
+  describe("Token check", () => {
+    it("check burn and mint", async () => {
+      await token.deployed();
+      const mint = await token.connect(owner).mint(owner.address, 1);
+      await mint.wait();
+      const burn = await token.connect(owner).burn(owner.address, 1);
+      await burn.wait();
+    });
   });
 
 })
