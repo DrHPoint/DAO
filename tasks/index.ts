@@ -1,5 +1,8 @@
 import "./createProposal";
-//import "./b";
-//import "./c";
-//import "./d";
-//import "./e";
+import "./changeVotingRules";
+import "./delegate";
+import "./deposite";
+import "./withdraw";
+import "./checkEnding";
+import "./vote";
+import "./execute";

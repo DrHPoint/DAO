@@ -9,12 +9,15 @@ import "@nomiclabs/hardhat-waffle";
 import "@nomiclabs/hardhat-ethers";
 import "@nomiclabs/hardhat-web3";
 
-task("createProposal", "Create new Proposal", async (args, hre) => {
+task("deposite", "deposite tokens to DAO")
+.addParam("addr", "user address")
+.addParam("amount", "amount token to deposite")
+.setAction(async (taskArgs, hre) =>{
   const [addr1, addr2, ...addrs] = await hre.ethers.getSigners();
 
-  //const token = await hre.ethers.getContractAt("MyToken", TOKEN_ADDR as string);
   const dao = await hre.ethers.getContractAt("DAO", DAO_ADDR as string);
-  await dao.createProposal("0xa9059cbb000000000000000000000000da591c6ead892a6e67cad2c79ab5b38aa662a0e20000000000000000000000000000000000000000000000008ac7230489e80000", "Transfer 1000 tokens to addr2 from DAO", TOKEN_ADDR as string);
+  await dao.connect(taskArgs.addr).deposite(parseUnits(taskArgs.amount, 18));
 
-  console.log('createProposal task Done!'); 
+  console.log('deposite task Done!'); 
 });
+
