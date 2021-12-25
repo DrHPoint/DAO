@@ -6,3 +6,4 @@ import "./withdraw";
 import "./checkEnding";
 import "./vote";
 import "./execute";
+import "./deposite copy";

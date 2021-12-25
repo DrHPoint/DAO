@@ -1,10 +1,9 @@
 const hre = require("hardhat");
-const { TOKEN_ADDR } = process.env;
 
 async function main() {
   
   const DAO = await hre.ethers.getContractFactory("DAO");
-  const dao = await DAO.deploy(TOKEN_ADDR, 30, 3);
+  const dao = await DAO.deploy(process.env.TOKEN_ADDR as string, 30, 3);
 
   await dao.deployed();
 
